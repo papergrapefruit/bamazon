@@ -16,28 +16,70 @@ var connection = mysql.createConnection({
 });
 
 // connect to the mysql server and sql database
-connection.connect(function (err) {
+connection.connect(function(err){
   if (err) throw err;
-  // run the start function after the connection is made to prompt the user
-  // start(); 
-  connection.query("SELECT * from products", 
-    function (err, result, fields) {
-      if (err) throw err;
-      console.log(asTable(result));
-    });
-function mayIHelpYou(){
-    inquirer.prompt([
-      {
-        type: 'input',
-        name: 'ID',
-        message: 'Enter ID of the product you would like to buy:'
-      }, {
-        type: 'input',
-        name: 'ID',
-        message: 'How many units?'
-      }
-    ]).then (function (placeOrder){
-      if "placeOrder.ID > "git 
+  takeOrder();
+});
 
+// function which takes in customer request
+function takeOrder() { 
+// query the database for all items available
+connection.query("SELECT * FROM products", function (err, results) {
+  if (err) throw err;
+  console.log(asTable(results));
+  // once you have the items, prompts the user for productID and qty desired
+  inquirer
+    .prompt([
+      {
+        name: 'choice',
+        type: 'input',
+        message: 'Enter ID of product you would like to buy:'
+      },
+      {
+        name: 'qty',
+        type: 'input',
+        message: 'How many units to buy?',
+        validate: function (value) {
+        if (isNaN(value) === false) {
+          return true;
+        }
+          return false;
+        }
+      }
+    ])
+    .then(function(answer) {  
+      var chosenItem;
+      for (var i = 0; i < results.length; i++) {
+        if (results[ i ].item_id === answer.choice) {
+          chosenItem = results[ i ];
+          console.log(results[i]);
+        }
+      }
+      // if qty requested is available
+      if (chosenItem.stock_quantity > parseInt(answer.qty)) {
+        // quantity requested was available, so update db, let the user know, and start over
+        connection.query(
+          "UPDATE products SET ? WHERE ?",
+          [
+            {
+              stock_quantity: ((chosenItem.stock_quantity) - (parseInt(answer.qty)))
+            },
+            {
+              id: chosenItem.id
+            }
+          ],
+          function (error) {
+            if (error) throw err;
+            console.log("Your total: $");
+            takeOrder();
+          }
+        );
+      }
+      else {
+        // bid wasn't high enough, so apologize and start over
+        console.log("Insufficient quantity! Try again...");
+        takeOrder();
+      }
+    });
   });
 }
